@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 import shutil
+import re
+import struct
 import subprocess
 import sys
 import tarfile
@@ -40,6 +42,21 @@ def download(url, dest, expected):
 def extract(archive, destination):
     with tarfile.open(archive) as source:
         source.extractall(destination, filter='data')
+
+def elf_diagnostics(path):
+    data = path.read_bytes()
+    offset = struct.unpack_from('<Q', data, 40)[0]
+    width, count, names_index = struct.unpack_from('<HHH', data, 58)
+    headers = [struct.unpack_from('<IIQQQQIIQQ', data, offset+i*width) for i in range(count)]
+    names_header = headers[names_index]
+    names = data[names_header[4]:names_header[4]+names_header[5]]
+    sections = {}
+    for header in headers:
+        name = names[header[0]:].split(b'\0',1)[0].decode()
+        contents = data[header[4]:header[4]+header[5]]
+        sections[name] = {'bytes':header[5], 'sha256':hashlib.sha256(contents).hexdigest()}
+    paths = [s.decode() for s in re.findall(rb'[ -~]{6,}', data) if b'.rs' in s]
+    return {'sections':sections, 'diagnosticPaths':paths}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -94,6 +111,10 @@ def main():
     for source in sorted(vendor.rglob('*.rs')):
         suffix = str(source.relative_to(vendor)).replace('/', '\\')
         flags.append(f'--remap-path-prefix={source}={ORIGINAL_VENDOR}\\{suffix}')
+    for source in sorted((ROOT/'program/src').glob('*.rs')):
+        relative = source.relative_to(ROOT/'program').as_posix()
+        original = relative.replace('/', '\\')
+        flags.append(f'--remap-path-prefix={relative}={original}')
     env = dict(os.environ)
     env.pop('RUSTFLAGS', None)
     env['CARGO_ENCODED_RUSTFLAGS'] = '\x1f'.join(flags)
@@ -109,6 +130,7 @@ def main():
     actual = digest(binary)
     result = {'expectedSha256': EXPECTED, 'actualSha256': actual, 'exactMatch': actual == EXPECTED,
               'bytes': binary.stat().st_size, 'host': sys.platform, 'compiler': compiler_version}
+    result.update(elf_diagnostics(binary))
     (work/'result.json').write_text(json.dumps(result, indent=2)+'\n', encoding='utf8')
     print(json.dumps(result, indent=2))
     if actual != EXPECTED:
