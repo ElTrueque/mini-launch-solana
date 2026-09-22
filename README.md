@@ -11,9 +11,9 @@ Source snapshot for the Mini Launch program deployed on Solana mainnet-beta.
 
 ## Verification status
 
-The original source files and lockfile have been preserved byte-for-byte. A fresh Windows build from a separate directory reproduces the deployed executable exactly after restoring the original compiler diagnostic path strings.
+The original source files and lockfile have been preserved byte-for-byte. Fresh Windows and Linux builds reproduce the deployed executable exactly. The successful independent Linux run is recorded in [GitHub Actions](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35676758376).
 
-**Public OtterSec verification is not complete.** Publishing source is not itself an explorer verification or an independent security audit. Linux/container reproduction and the public verification service must still be checked.
+**Public OtterSec verification is not complete.** Publishing source and passing a reproducible build are not themselves an explorer verification or an independent security audit. The container integration and public verification registration are the remaining steps.
 
 This repository does not contain wallet keys, credentials, deployment accounts or a deploy command. Running the build does not sign transactions or modify the on-chain program.
 
@@ -31,9 +31,20 @@ Alternatively, download the platform-tools release and verify its pinned SHA-256
 python reproduce.py --download-tools
 ```
 
-The script fetches only the six dependencies in `program/Cargo.lock`, checks their registry checksums, builds with the original release settings, and fails if the resulting executable hash is different. The platform-tools download is approximately 530–580 MB. Build files stay under `.build/` and are ignored by Git.
+The script fetches only the six dependencies in `program/Cargo.lock`, checks their registry checksums, builds with the original release settings, and fails if the resulting executable hash is different. Windows downloads approximately 580 MB of tooling; Linux downloads both pinned releases (approximately 1.1 GB total) to use the native compiler with the original portable SBPF target libraries. Build files stay under `.build/` and are ignored by Git.
 
-The original executable includes Windows diagnostic paths. The recipe remaps dependency source paths to those same strings; it does not edit or patch the compiled executable. These strings already exist in the publicly deployed program.
+The original executable includes Windows diagnostic paths. The recipe remaps source paths to those same strings and uses the SBPF standard libraries from the original Windows platform-tools release. These target libraries compile successfully with the Linux compiler from the same release. The recipe does not edit or patch the compiled executable. The path strings already exist in the publicly deployed program.
+
+## Container integration
+
+The Dockerfile packages only the pinned build tools. It contains no compiled Mini Launch executable. Its `cargo-build-sbf` adapter recompiles the mounted repository using the original direct Cargo procedure and preserves the unstripped executable, as originally deployed. It refuses unsupported build overrides and checks the full executable hash before copying the newly built file into the verifier's expected output directory.
+
+```sh
+docker build -t mini-launch-builder .
+solana-verify build --base-image mini-launch-builder --mount-path "$PWD" --workspace-path "$PWD/program" --library-name mini_launch_solana --arch v3
+```
+
+These commands build locally. They do not upload a verification record, deploy a program, or sign a transaction.
 
 ## Source layout
 

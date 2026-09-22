@@ -67,6 +67,8 @@ def main():
     choice.add_argument('--platform-tools', type=Path)
     choice.add_argument('--download-tools', action='store_true')
     parser.add_argument('--vendor-dir', type=Path, help='Use existing checksum-verified crate sources')
+    parser.add_argument('--original-sysroot', type=Path, help='Original SBPF libraries prepared in the builder image')
+    parser.add_argument('--prepare-only', action='store_true', help='Prepare pinned tools without compiling a program')
     args = parser.parse_args()
     work = ROOT/'.build'
     work.mkdir(exist_ok=True)
@@ -91,8 +93,8 @@ def main():
     # The original target libraries were bundled in the Windows release.
     # Use those same portable SBPF libraries with the Linux compiler; native
     # compiler executables and linker still come from the Linux release.
-    original_sysroot = None
-    if sys.platform == 'linux':
+    original_sysroot = args.original_sysroot.resolve() if args.original_sysroot else None
+    if sys.platform == 'linux' and original_sysroot is None:
         filename = 'platform-tools-windows-x86_64.tar.bz2'
         archive = work/filename
         download(f'https://github.com/anza-xyz/platform-tools/releases/download/v1.57/{filename}',
@@ -109,6 +111,9 @@ def main():
         native_tools = original_sysroot/'lib/rustlib/x86_64-unknown-linux-gnu'
         if not native_tools.exists():
             native_tools.symlink_to(tools/'rust/lib/rustlib/x86_64-unknown-linux-gnu', target_is_directory=True)
+    if args.prepare_only:
+        print('Pinned compiler and original SBPF target libraries prepared; no program compiled.')
+        return
     vendor = args.vendor_dir.resolve() if args.vendor_dir else work/'vendor'
     vendor.mkdir(exist_ok=True)
     lock = tomllib.loads((ROOT/'program/Cargo.lock').read_text(encoding='utf8'))
@@ -148,7 +153,7 @@ def main():
     env['CARGO_HOME'] = str(work/'cargo-home')
     env['CARGO_TARGET_DIR'] = str(work/'target')
     env['PATH'] = str(tools/'rust/bin') + os.pathsep + str(tools/'llvm/bin') + os.pathsep + env.get('PATH', '')
-    command = [str(tools/f'rust/bin/cargo{extension}'), 'build', '--verbose', '--offline', '--release', '--locked',
+    command = [str(tools/f'rust/bin/cargo{extension}'), 'build', '--offline', '--release', '--locked',
                '--target', 'sbpfv3-solana-solana', '--config', 'source.crates-io.replace-with="vendored-sources"',
                '--config', f'source.vendored-sources.directory="{vendor.as_posix()}"']
     subprocess.run(command, cwd=ROOT/'program', env=env, check=True)

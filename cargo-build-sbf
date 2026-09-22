@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Build the mounted source using the original unstripped SBPF build procedure.
+
+Adapter for solana-verify's cargo-build-sbf interface. No program executable is
+included in the image: every invocation compiles the repository source afresh.
+"""
+import argparse
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+args = sys.argv[1:]
+if args and args[0] == 'build-sbf':
+    args.pop(0)
+separator = args.index('--') if '--' in args else len(args)
+parser = argparse.ArgumentParser()
+parser.add_argument('--arch', choices=['v3'], default='v3')
+parser.parse_args(args[:separator])
+cargo = argparse.ArgumentParser()
+cargo.add_argument('--locked', action='store_true')
+cargo.add_argument('--config', action='append', default=[])
+cargo.add_argument('--manifest-path', type=Path)
+options = cargo.parse_args(args[separator+1:])
+root = Path.cwd().resolve()
+while not (root/'reproduce.py').is_file():
+    if root == root.parent:
+        raise SystemExit('Mounted repository build recipe not found')
+    root = root.parent
+expected_manifest = root/'program/Cargo.toml'
+if options.manifest_path and options.manifest_path.resolve() != expected_manifest:
+    raise SystemExit('Unexpected program manifest')
+for config in options.config:
+    if config != 'registries.crates-io.protocol="sparse"':
+        raise SystemExit('Unsupported build override')
+tools = Path('/opt/mini-launch-tools/.build')
+subprocess.run([
+    'python3', str(root/'reproduce.py'),
+    '--platform-tools', str(tools/'platform-tools'),
+    '--original-sysroot', str(tools/'original-target-libraries/rust'),
+], cwd=root, check=True)
+compiled = root/'.build/target/sbpfv3-solana-solana/release/mini_launch_solana.so'
+destination = root/'program/target/deploy/mini_launch_solana.so'
+destination.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(compiled, destination)
+print(f'Copied freshly compiled executable to {destination}')
