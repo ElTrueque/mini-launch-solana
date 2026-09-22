@@ -19,7 +19,7 @@ This repository does not contain wallet keys, credentials, deployment accounts o
 
 ## Reproduce the original build
 
-Python 3.11 or newer is required. Use official Anza platform-tools v1.57, extracted into a directory containing `rust/bin` and `llvm/bin`:
+Python 3.12 or newer is required. Use official Anza platform-tools v1.57, extracted into a directory containing `rust/bin` and `llvm/bin`:
 
 ```text
 python reproduce.py --platform-tools /path/to/platform-tools
