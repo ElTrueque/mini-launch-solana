@@ -1,0 +1,40 @@
+name: Publish verified build tools
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/eltrueque/mini-launch-solana-builder
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build tools without embedding the program
+        run: docker build -t "$IMAGE:$GITHUB_SHA" .
+      - name: Check official verifier download
+        run: |
+          curl --fail --location --output solana-verify-0.5.2-linux https://github.com/solana-foundation/solana-verifiable-build/releases/download/v0.5.2/solana-verify-0.5.2-linux
+          echo 'b9d5ccce9634dc14269cab3e7a58649bc141b3306e7735a94478c936341f211f  solana-verify-0.5.2-linux' | sha256sum --check
+          chmod 755 solana-verify-0.5.2-linux
+      - name: Compile mounted source through the official verifier
+        run: ./solana-verify-0.5.2-linux build --base-image "$IMAGE:$GITHUB_SHA" "$PWD" --workspace-path "$PWD/program" --library-name mini_launch_solana --arch v3
+      - name: Require exact deployed executable hash
+        run: echo '5424ba2462eb78826c7a4e7f8dacc2d11fc8cffc1bcff8ac33db215db4f132fb  program/target/deploy/mini_launch_solana.so' | sha256sum --check
+      - name: Publish only after successful reproduction
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Discard registry session
+        if: always()
+        run: docker logout ghcr.io
