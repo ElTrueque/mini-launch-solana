@@ -51,12 +51,15 @@ def elf_diagnostics(path):
     names_header = headers[names_index]
     names = data[names_header[4]:names_header[4]+names_header[5]]
     sections = {}
+    symbols = []
     for header in headers:
         name = names[header[0]:].split(b'\0',1)[0].decode()
         contents = data[header[4]:header[4]+header[5]]
         sections[name] = {'bytes':header[5], 'sha256':hashlib.sha256(contents).hexdigest()}
+        if name == '.strtab':
+            symbols = contents.decode().split('\0')
     paths = [s.decode() for s in re.findall(rb'[ -~]{6,}', data) if b'.rs' in s]
-    return {'sections':sections, 'diagnosticPaths':paths}
+    return {'sections':sections, 'diagnosticPaths':paths, 'symbols':symbols}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -85,6 +88,27 @@ def main():
     compiler_version = subprocess.check_output([str(rustc), '--version'], text=True).strip()
     if compiler_version != 'rustc 1.95.0-dev (ae660768a 2026-08-17)':
         raise RuntimeError(f'Unexpected compiler: {compiler_version}')
+    # The original target libraries were bundled in the Windows release.
+    # Use those same portable SBPF libraries with the Linux compiler; native
+    # compiler executables and linker still come from the Linux release.
+    original_sysroot = None
+    if sys.platform == 'linux':
+        filename = 'platform-tools-windows-x86_64.tar.bz2'
+        archive = work/filename
+        download(f'https://github.com/anza-xyz/platform-tools/releases/download/v1.57/{filename}',
+                 archive, RELEASES['win32'][1])
+        original_tools = work/'original-target-libraries'
+        target = 'rust/lib/rustlib/sbpfv3-solana-solana/'
+        if not (original_tools/target/'lib').is_dir():
+            with tarfile.open(archive) as source:
+                members = [m for m in source.getmembers() if m.name.removeprefix('./').startswith(target)]
+                if not members:
+                    raise RuntimeError('Original SBPF target libraries missing')
+                source.extractall(original_tools, members=members, filter='data')
+        original_sysroot = original_tools/'rust'
+        native_tools = original_sysroot/'lib/rustlib/x86_64-unknown-linux-gnu'
+        if not native_tools.exists():
+            native_tools.symlink_to(tools/'rust/lib/rustlib/x86_64-unknown-linux-gnu', target_is_directory=True)
     vendor = args.vendor_dir.resolve() if args.vendor_dir else work/'vendor'
     vendor.mkdir(exist_ok=True)
     lock = tomllib.loads((ROOT/'program/Cargo.lock').read_text(encoding='utf8'))
@@ -107,6 +131,8 @@ def main():
             if digest(folder/relative) != expected:
                 raise RuntimeError(f'Source checksum mismatch: {name}/{relative}')
     flags = ['-C', 'target-cpu=v3', '-C', 'panic=abort']
+    if original_sysroot:
+        flags.extend(['--sysroot', str(original_sysroot)])
     # Map whole filenames so Windows diagnostic separators remain identical on Linux.
     for source in sorted(vendor.rglob('*.rs')):
         suffix = str(source.relative_to(vendor)).replace('/', '\\')
