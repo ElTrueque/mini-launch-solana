@@ -1,4 +1,4 @@
-# Mini Launch by El Trueque — Solana
+# Mini Launch by El Trueque â€” Solana
 
 Source snapshot for the Mini Launch program deployed on Solana mainnet-beta.
 
@@ -41,7 +41,7 @@ The Dockerfile packages only the pinned build tools. It contains no compiled Min
 
 ```sh
 docker build -t mini-launch-builder .
-solana-verify build --base-image mini-launch-builder --mount-path "$PWD" --workspace-path "$PWD/program" --library-name mini_launch_solana --arch v3
+solana-verify build --base-image mini-launch-builder "$PWD" --workspace-path "$PWD/program" --library-name mini_launch_solana --arch v3
 ```
 
 These commands build locally. They do not upload a verification record, deploy a program, or sign a transaction.
