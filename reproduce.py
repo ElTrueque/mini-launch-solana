@@ -106,7 +106,7 @@ def main():
         for relative, expected in checks['files'].items():
             if digest(folder/relative) != expected:
                 raise RuntimeError(f'Source checksum mismatch: {name}/{relative}')
-    flags = ['-C', 'panic=abort', '-C', 'target-cpu=v3']
+    flags = ['-C', 'target-cpu=v3', '-C', 'panic=abort']
     # Map whole filenames so Windows diagnostic separators remain identical on Linux.
     for source in sorted(vendor.rglob('*.rs')):
         suffix = str(source.relative_to(vendor)).replace('/', '\\')
@@ -122,7 +122,7 @@ def main():
     env['CARGO_HOME'] = str(work/'cargo-home')
     env['CARGO_TARGET_DIR'] = str(work/'target')
     env['PATH'] = str(tools/'rust/bin') + os.pathsep + str(tools/'llvm/bin') + os.pathsep + env.get('PATH', '')
-    command = [str(tools/f'rust/bin/cargo{extension}'), 'build', '--offline', '--release', '--locked',
+    command = [str(tools/f'rust/bin/cargo{extension}'), 'build', '--verbose', '--offline', '--release', '--locked',
                '--target', 'sbpfv3-solana-solana', '--config', 'source.crates-io.replace-with="vendored-sources"',
                '--config', f'source.vendored-sources.directory="{vendor.as_posix()}"']
     subprocess.run(command, cwd=ROOT/'program', env=env, check=True)
