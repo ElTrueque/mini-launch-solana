@@ -1,0 +1,34 @@
+name: Check verifier container
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'cargo-build-sbf'
+      - 'reproduce.py'
+      - 'program/**'
+      - '.github/workflows/container.yml'
+permissions:
+  contents: read
+jobs:
+  verifier-container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build pinned tool container
+        run: docker build -t mini-launch-builder .
+      - name: Install official verifier
+        run: |
+          curl --fail --location --output solana-verify-0.5.2-linux https://github.com/solana-foundation/solana-verifiable-build/releases/download/v0.5.2/solana-verify-0.5.2-linux
+          echo 'b9d5ccce9634dc14269cab3e7a58649bc141b3306e7735a94478c936341f211f  solana-verify-0.5.2-linux' | sha256sum --check
+          chmod 755 solana-verify-0.5.2-linux
+      - name: Rebuild through solana-verify
+        run: ./solana-verify-0.5.2-linux build --base-image mini-launch-builder --mount-path "$PWD" --workspace-path "$PWD/program" --library-name mini_launch_solana --arch v3
+      - name: Compare executable with deployed hash
+        run: |
+          echo '5424ba2462eb78826c7a4e7f8dacc2d11fc8cffc1bcff8ac33db215db4f132fb  program/target/deploy/mini_launch_solana.so' | sha256sum --check
+          ./solana-verify-0.5.2-linux get-executable-hash program/target/deploy/mini_launch_solana.so
