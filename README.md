@@ -13,7 +13,9 @@ Source snapshot for the Mini Launch program deployed on Solana mainnet-beta.
 
 The original source files and lockfile have been preserved byte-for-byte. Fresh Windows and Linux builds reproduce the deployed executable exactly. The successful independent Linux run is recorded in [GitHub Actions](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35676758376).
 
-**Public OtterSec verification is not complete.** Publishing source and passing a reproducible build are not themselves an explorer verification or an independent security audit. The container integration and public verification registration are the remaining steps.
+The [official verifier container test](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35678058417) also reproduces the full executable and its zero-trimmed verification hash. The [build tools publication](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35678677419) checks the exact executable again before publishing.
+
+**Public OtterSec verification is not complete.** Publishing source and passing a reproducible build are not themselves an explorer verification or an independent security audit. The owner-signed verification record and remote verification result are the remaining steps.
 
 This repository does not contain wallet keys, credentials, deployment accounts or a deploy command. Running the build does not sign transactions or modify the on-chain program.
 
@@ -45,6 +47,14 @@ solana-verify build --base-image mini-launch-builder "$PWD" --workspace-path "$P
 ```
 
 These commands build locally. They do not upload a verification record, deploy a program, or sign a transaction.
+
+The tested tools are publicly available by immutable image digest:
+
+```text
+ghcr.io/eltrueque/mini-launch-solana-builder@sha256:15797eb7f86a5cae8605cd58413578c3e9f31f19db569dd44d85d6b9a7707be0
+```
+
+The image was built from commit `5413304c6580cce236b8bc7706cb14e72e2e8f62`. It can replace `mini-launch-builder` in the command above.
 
 ## Source layout
 
