@@ -1,4 +1,4 @@
-# Mini Launch by El Trueque â€” Solana
+# Mini Launch by El Trueque - Solana
 
 Source snapshot for the Mini Launch program deployed on Solana mainnet-beta.
 
@@ -15,7 +15,7 @@ The original source files and lockfile have been preserved byte-for-byte. Fresh 
 
 The [official verifier container test](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35678058417) also reproduces the full executable and its zero-trimmed verification hash. The [build tools publication](https://github.com/ElTrueque/mini-launch-solana/actions/runs/35678677419) checks the exact executable again before publishing.
 
-**Public OtterSec verification is not complete.** Publishing source and passing a reproducible build are not themselves an explorer verification or an independent security audit. The owner-signed verification record and remote verification result are the remaining steps.
+**Public OtterSec verification passed on 2026-09-22.** The [public verification result](https://verify.osec.io/status/5B4bmFyPrTXE9FFynQMP5idgyJqNJ9DHdfQQgHnQ1e62) reports `is_verified: true` for commit `5413304c6580cce236b8bc7706cb14e72e2e8f62`. The remote executable hash and on-chain hash both equal `204b37d55fe07d46c43311bfb630554bc075b135005080bcb58784f7ddfa1f36`. This verifies source-to-executable reproducibility; it is not a security audit.
 
 This repository does not contain wallet keys, credentials, deployment accounts or a deploy command. Running the build does not sign transactions or modify the on-chain program.
 
