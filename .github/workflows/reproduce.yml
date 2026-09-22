@@ -1,0 +1,32 @@
+name: Reproduce deployed executable
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'program/**'
+      - 'reproduce.py'
+      - '.github/workflows/reproduce.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  linux-rebuild:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Read source snapshot
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Recompile with the pinned Anza toolchain
+        run: python3 reproduce.py --download-tools
+      - name: Save hash comparison
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: linux-rebuild-result
+          path: .build/result.json
+          if-no-files-found: ignore
+          retention-days: 14
